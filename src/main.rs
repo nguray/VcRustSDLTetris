@@ -476,7 +476,7 @@ impl Game{
         // self.hight_scores.push(Hight_Score{name:"azeret2".to_string(),score:200});
         // self.hight_scores.push(Hight_Score{name:"azeret3".to_string(),score:300});
 
-        let path = Path::new("hight_scores.txt");
+        let path = Path::new("high_scores.txt");
         let display = path.display();
         let _ = match File::open(&path){
             Err(why) => panic!("Couldn't open {}: {}", display, why),
@@ -497,7 +497,7 @@ impl Game{
 
     fn save_hight_scores(&mut self){
         //--
-        let path = Path::new("hight_scores.txt");
+        let path = Path::new("high_scores.txt");
         let display = path.display();
         let _ = match File::create(&path){
             Err(why) => panic!("Couldn't create {}: {}", display, why),

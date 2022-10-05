@@ -153,10 +153,9 @@ impl TetrisShape {
 
             let a = (CELL_SIZE-2) as u32;
             for p in self.v {
-                let iy = self.y + p.y;
-                if iy>=0 {
-                    l = ((self.x + p.x) * (CELL_SIZE) + LEFT + 1) as i32;
-                    t = (iy * (CELL_SIZE) + TOP + 1) as i32;
+                t = (self.y + p.y*CELL_SIZE + TOP + 1) as i32;
+                l = (self.x + p.x*CELL_SIZE + LEFT + 1) as i32;
+                if t>=0 {
                     canvas.fill_rect(Rect::new(l,t, a,a));
                 }
             }
@@ -205,6 +204,75 @@ impl TetrisShape {
         true
     }
 
+    fn is_out_left(&self) -> bool {
+        let l : i32 = self.min_x_v()*CELL_SIZE + self.x;
+        return (l<0);
+    }
+
+    fn is_out_right(&self) -> bool {
+        let r : i32 = self.min_x_v()*CELL_SIZE + CELL_SIZE + self.x;
+        return (r>(NB_COLUMNS*CELL_SIZE));
+    }
+
+    fn is_out_bottom(&self) -> bool {
+        let b : i32 = self.max_y_v()*CELL_SIZE + CELL_SIZE + self.y;
+        return (b>NB_ROWS*CELL_SIZE);
+    }
+
+    fn hit_ground1(&self, board: &[i32; (NB_ROWS * NB_COLUMNS) as usize]) -> bool {
+        let mut ix : i32;
+        let mut iy : i32;
+        let mut x : i32;
+        let mut y : i32;
+
+        for p in self.v {
+
+            x  = p.x * CELL_SIZE + self.x + 1;
+            y  = p.y * CELL_SIZE + self.y + 1;
+            ix = x / CELL_SIZE;
+            iy = y / CELL_SIZE;
+            if (ix>=0) && (ix<NB_COLUMNS) && (iy>=0) && (iy<NB_ROWS) {
+                //println!("ix = {:?} iy = {:?}",ix,iy);
+                if board[(iy*NB_COLUMNS + ix) as usize]!=0{
+                    return true;
+                }
+            }
+
+            x  = p.x * CELL_SIZE + CELL_SIZE - 1 + self.x;
+            y  = p.y * CELL_SIZE + self.y + 1;
+            ix = x / CELL_SIZE;
+            iy = y / CELL_SIZE;
+            if (ix>=0) && (ix<NB_COLUMNS) && (iy>=0) && (iy<NB_ROWS) {
+                if board[(iy*NB_COLUMNS + ix) as usize]!=0{
+                    return true;
+                }
+            }
+
+            x  = p.x * CELL_SIZE + CELL_SIZE - 1 + self.x;
+            y  = p.y * CELL_SIZE + CELL_SIZE - 1 + self.y;
+            ix = x / CELL_SIZE;
+            iy = y / CELL_SIZE;
+            if (ix>=0) && (ix<NB_COLUMNS) && (iy>=0) && (iy<NB_ROWS) {
+                if board[(iy*NB_COLUMNS + ix) as usize]!=0{
+                    return true;
+                }
+            }
+
+            x  = p.x * CELL_SIZE + self.x + 1;
+            y  = p.y * CELL_SIZE + CELL_SIZE - 1 + self.y;
+            ix = x / CELL_SIZE;
+            iy = y / CELL_SIZE;
+            if (ix>=0) && (ix<NB_COLUMNS) && (iy>=0) && (iy<NB_ROWS) {
+                if board[(iy*NB_COLUMNS + ix) as usize]!=0{
+                    return true;
+                }
+            }
+
+        }
+
+        return false;
+    }
+
     fn hit_ground(&self, board: &[i32; (NB_ROWS * NB_COLUMNS) as usize]) -> bool {
         let mut x: i32;
         let mut y: i32;
@@ -231,10 +299,32 @@ impl TetrisShape {
         maxi
     }
 
+    fn max_x_v(&self)->i32{
+        let mut maxi = self.v[0].x;
+        for i in 1..4{
+            let x = self.v[i].x;
+            if x>maxi{
+                maxi = x;
+            }
+        }
+        maxi
+    }
+
     fn min_x(&self)->i32{
         let mut mini = self.v[0].x+ self.x;
         for i in 1..4{
             let x = self.v[i].x+ self.x;
+            if x<mini{
+                mini = x;
+            }
+        }
+        mini
+    }
+
+    fn min_x_v(&self)->i32{
+        let mut mini = self.v[0].x;
+        for i in 1..4{
+            let x = self.v[i].x;
             if x<mini{
                 mini = x;
             }
@@ -251,6 +341,21 @@ impl TetrisShape {
             }
         }
         maxi
+    }
+
+    fn max_y_v(&self)->i32{
+        let mut maxi = self.v[0].y;
+        for i in 1..4{
+            let y = self.v[i].y;
+            if y>maxi{
+                maxi = y;
+            }
+        }
+        maxi
+    }
+
+    fn column(&self)->i32{
+        return self.x / CELL_SIZE;
     }
 
 }
@@ -286,6 +391,8 @@ struct Game {
     process_event : fn ( self1 : &mut Game, event : &Event)->bool,
     f_play_sound : bool,
     ascii_table : HashMap<sdl2::keyboard::Keycode,char>,
+    horizontal_move : i32,
+    horizontal_start_column : i32,
 }
 
 impl Game{
@@ -301,7 +408,6 @@ impl Game{
             f_drop : false,
             f_fast_down : false,
             hight_scores : Vec::new(),
-            //process_event : Game::process_standby_event,
             player_name : String::with_capacity(10),
             id_hight_score : None,
             i_hight_score_color : 0,
@@ -355,6 +461,8 @@ impl Game{
                 (Keycode::Num8, '8'),
                 (Keycode::Num9, '9'),
             ]),
+            horizontal_move : 0,
+            horizontal_start_column : -1,
         }
     }
 
@@ -411,17 +519,18 @@ impl Game{
     fn frezze_tetromino(&mut self) -> bool {
         let mut x: i32;
         let mut y: i32;
+        let mut ix: i32;
+        let mut iy: i32;
+
+        ix = (self.cur_shape.x + 1) / CELL_SIZE;
+        iy = (self.cur_shape.y + 1) / CELL_SIZE;
         for i in 0..4 {
-            y = self.cur_shape.v[i].y + self.cur_shape.y;
-            if y>=0{
-                x = self.cur_shape.v[i].x + self.cur_shape.x;
+            x = self.cur_shape.v[i].x + ix;
+            y = self.cur_shape.v[i].y + iy;
+            if ((x>=0) && (x<NB_COLUMNS) && (y>=0) && (y<NB_ROWS)){
                 self.board[(x + y * NB_COLUMNS) as usize] = self.cur_shape.typ;
             }
         }
-
-        self.cur_shape.init(5, 0, self.next_shape.typ);
-        self.cur_shape.y = -(self.cur_shape.max_y()+1);
-        self.next_shape.init(NB_COLUMNS + 3, NB_ROWS / 2, (rand::random::<u8>() % 6 + 1) as i32);
 
         let nb_lines = self.erase_completed_lines();
         if nb_lines > 0 {
@@ -434,6 +543,12 @@ impl Game{
             return true;
         }
         false
+    }
+
+    fn new_tetromino(&mut self){
+        self.cur_shape.init(5*CELL_SIZE, 0, self.next_shape.typ);
+        self.cur_shape.y = -(self.cur_shape.max_y()+1)*CELL_SIZE;
+        self.next_shape.init((NB_COLUMNS + 3)*CELL_SIZE, (NB_ROWS / 2)*CELL_SIZE, (rand::random::<u8>() % 6 + 1) as i32);
     }
 
     fn draw(&mut self, canvas: &mut WindowCanvas) {
@@ -611,9 +726,7 @@ impl Game{
             Event::KeyDown { keycode: Some(Keycode::Space),..} =>
             {
                 self.mode = GameMode::Play;
-                self.cur_shape.init(5, 0, self.next_shape.typ);
-                self.cur_shape.y = -(self.cur_shape.max_y()+1);
-                self.next_shape.init(NB_COLUMNS + 3, NB_ROWS / 2, (rand::random::<u8>() % 6 + 1) as i32);
+                self.new_tetromino();
                 self.init_board();
                 self.process_event = Game::process_play_event;
             }
@@ -741,9 +854,7 @@ impl Game{
             Event::KeyDown {keycode: Some(Keycode::Space),..} =>
             {
                 self.mode = GameMode::Play;
-                self.cur_shape.init(5, 0, self.next_shape.typ);
-                self.cur_shape.y = -(self.cur_shape.max_y()+1);
-                self.next_shape.init(NB_COLUMNS + 3, NB_ROWS / 2, (rand::random::<u8>() % 6 + 1) as i32);
+                self.new_tetromino();
                 self.init_board();
                 self.cur_score = 0;
                 self.process_event = Game::process_play_event;
@@ -906,7 +1017,7 @@ pub fn main() {
     let chunk_size = 1_024;
     sdl2::mixer::open_audio(frequency, format, channels, chunk_size).unwrap();
     let _mixer_context =
-        sdl2::mixer::init(InitFlag::MP3 | InitFlag::FLAC | InitFlag::MOD | InitFlag::OGG).unwrap();
+        sdl2::mixer::init(InitFlag::MP3 | InitFlag::FLAC | InitFlag::MOD | InitFlag::OGG ).unwrap();
 
     // Number of mixing channels available for sound effect `Chunk`s to play
     // simultaneously.
@@ -975,12 +1086,12 @@ pub fn main() {
     font20.set_style(sdl2::ttf::FontStyle::BOLD);
 
     let mut game = Game::new();
-    game.next_shape.init(NB_COLUMNS + 3, NB_ROWS / 2, (rand::random::<u8>() % 6 + 1) as i32);
+    game.next_shape.init((NB_COLUMNS + 3)*CELL_SIZE, (NB_ROWS / 2)*CELL_SIZE, (rand::random::<u8>() % 6 + 1) as i32);
     game.load_hight_scores();
     game.mode = GameMode::StandBy;
 
-    let mut update_timer = Instant::now();
-    let mut update_timer1 = Instant::now();
+    let mut update_timer_v = Instant::now();
+    let mut update_timer_h = Instant::now();
 
     let mut event_pump = sdl_context.event_pump().unwrap();
     let mut i = 0;
@@ -1012,9 +1123,9 @@ pub fn main() {
         if game.mode==GameMode::Play {
 
             let mut fAlreadyMoveH = false;
-            let elapsed = update_timer1.elapsed().as_millis();
+            let elapsed = update_timer_h.elapsed().as_millis();
             if elapsed > 100 {
-                update_timer1 = Instant::now();
+                update_timer_h = Instant::now();
                 game.cur_shape.x += game.velo_h;
                 if !game.cur_shape.is_in_board() {
                     game.cur_shape.x -= game.velo_h;
@@ -1027,7 +1138,8 @@ pub fn main() {
             }
 
             if game.f_drop {
-                update_timer = Instant::now();
+
+                update_timer_v = Instant::now();
 
                 game.cur_shape.y += 1;
 
@@ -1046,39 +1158,62 @@ pub fn main() {
                 }
 
             } else {
-                let elapsed = update_timer.elapsed().as_millis();
-                let limit = if game.f_fast_down {
-                    100
-                }else{
-                    500
-                };
+                let elapsed = update_timer_v.elapsed().as_millis();
+                let limit = if game.f_fast_down { 10 }else{ 25 };
                 if elapsed > limit {
-                    update_timer = Instant::now();
+                    update_timer_v = Instant::now();
 
-                    if fAlreadyMoveH {
-                        game.cur_shape.x += game.velo_h;
-                        if !game.cur_shape.is_in_board() {
-                            game.cur_shape.x -= game.velo_h;
-                        } else {
-                            if game.cur_shape.hit_ground(&game.board) {
-                                game.cur_shape.x -= game.velo_h;
-                            }
-                        }
-                    }
-
-                    game.cur_shape.y += 1;
-
-                    game.next_shape.rotate_right();
-
-                    if !game.cur_shape.is_in_board() {
-                        game.cur_shape.y -= 1;
-                        game.frezze_tetromino();
-                    
-                    } else {
-                        if game.cur_shape.hit_ground(&game.board) {
+                    for i in 0..3 {
+                        //-- Move down to Check
+                        game.cur_shape.y += 1;
+                        let mut fMove : bool = true;
+                        if game.cur_shape.hit_ground1(&game.board) {
                             game.cur_shape.y -= 1;
                             game.frezze_tetromino();
+                            game.new_tetromino();
+                            fMove = false;
+                        }else if (game.cur_shape.is_out_bottom()){
+                            game.cur_shape.y -= 1;
+                            game.frezze_tetromino();
+                            game.new_tetromino();
+                            fMove = false;
+                        }
 
+                        if (fMove){
+
+                            let elapsed = update_timer_h.elapsed().as_millis();
+                            if game.velo_h!=0 {
+
+                                if (elapsed>15){
+                                    update_timer_h = Instant::now();
+                                    game.cur_shape.x += game.velo_h;
+                                    if game.velo_h<0 {
+                                        if (game.cur_shape.is_out_left()){
+                                            game.cur_shape.x -= game.velo_h;
+                                        }else{
+                                            if game.cur_shape.hit_ground1(&game.board) {
+                                                game.cur_shape.x -= game.velo_h;
+                                            }else{
+                                                game.horizontal_move = game.velo_h;
+                                                game.horizontal_start_column = game.cur_shape.column();
+                                                break;
+                                            }
+                                        }
+                                    }else if game.velo_h>0 {
+                                        if (game.cur_shape.is_out_right()){
+                                            game.cur_shape.x -= game.velo_h;
+                                        }else{
+                                            if game.cur_shape.hit_ground1(&game.board) {
+                                                game.cur_shape.x -= game.velo_h;
+                                            }else{
+                                                game.horizontal_move = game.velo_h;
+                                                game.horizontal_start_column = game.cur_shape.column();
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1099,9 +1234,9 @@ pub fn main() {
             }
                
         }else if game.mode==GameMode::HightScore{
-            let elapsed = update_timer1.elapsed().as_millis();
+            let elapsed = update_timer_v.elapsed().as_millis();
             if elapsed > 300 {
-                update_timer1 = Instant::now();
+                update_timer_v = Instant::now();
                 game.i_hight_score_color += 1;
             }
         }
@@ -1134,6 +1269,7 @@ pub fn main() {
         game.draw_score(&mut canvas, &font18);
 
         canvas.present();
+
         ::std::thread::sleep(Duration::new(0, 1_000_000u32 / 60));
 
     }

@@ -741,6 +741,7 @@ impl Game{
             Event::Quit { .. } | Event::KeyDown { keycode: Some(Keycode::Escape),..} => { 
                 return true
             }
+
             Event::KeyDown { keycode: Some(Keycode::Left),..} => 
             {
                 self.velo_h = -1;
@@ -751,33 +752,33 @@ impl Game{
             Event::KeyDown { keycode: Some(Keycode::Up),..} => 
             {
                 self.cur_shape.rotate_left();
-                if  self.cur_shape.hit_ground(&self.board) {
-                    self.cur_shape.rotate_right();
-                }else if !self.cur_shape.is_in_board(){
-                    //-- Ajust tetrominos position after rotate : if possible
-                    // Check Right Limit
-                    let max_pos_x = self.cur_shape.max_x();
-                    if max_pos_x>=NB_COLUMNS{ 
-                        let dx = max_pos_x - (NB_COLUMNS-1);
-                        self.cur_shape.x -= dx;
-                        if self.cur_shape.hit_ground(&self.board){
-                            self.cur_shape.x += dx;
-                            self.cur_shape.rotate_right();
-                        }
-                    }else{
-                        // Check Left limit
-                        let min_pos_x = self.cur_shape.min_x();
-                        if min_pos_x<0{
-                            let dx = min_pos_x;
-                            self.cur_shape.x -= dx;
-                            if self.cur_shape.hit_ground(&self.board){
-                                self.cur_shape.x += dx;
-                                self.cur_shape.rotate_right();
-                            }
-                        }
 
+                if  self.cur_shape.hit_ground1(&self.board) {
+                    self.cur_shape.rotate_right();
+                }else if self.cur_shape.is_out_right(){
+                    let backupX = self.cur_shape.x;
+                    //-- Move Tetromino in board
+                    while self.cur_shape.is_out_right() {
+                        self.cur_shape.x -= 1;
+                    }
+                    if (self.cur_shape.hit_ground1(&self.board)){
+                        //-- Undo
+                        self.cur_shape.x = backupX;
+                        self.cur_shape.rotate_right();
+                    }
+                }else if self.cur_shape.is_out_left(){
+                    let backupX = self.cur_shape.x;
+                    //-- Move Tetromino in board
+                    while self.cur_shape.is_out_left() {
+                        self.cur_shape.x += 1;
+                    }
+                    if (self.cur_shape.hit_ground1(&self.board)){
+                        //-- Undo
+                        self.cur_shape.x = backupX;
+                        self.cur_shape.rotate_right();
                     }
                 }
+
             }
             Event::KeyDown { keycode: Some(Keycode::Down),..} =>
             {
@@ -1137,24 +1138,105 @@ pub fn main() {
                 fAlreadyMoveH = true;
             }
 
-            if game.f_drop {
+            if game.horizontal_move!=0 {
+                let elapsed = update_timer_h.elapsed().as_millis();
+                if elapsed > 20 {
+                    update_timer_h = Instant::now();
 
-                update_timer_v = Instant::now();
+                    for _i in 0..4 {
+                        let backupX = game.cur_shape.x;
+                        game.cur_shape.x += game.horizontal_move;
 
-                game.cur_shape.y += 1;
+                        if game.horizontal_move<0 {
+                            if game.cur_shape.is_out_left() {
+                                game.cur_shape.x = backupX;
+                                game.horizontal_move = 0;
+                                break;
+                            } else if game.cur_shape.hit_ground1(&game.board) {
+                                game.cur_shape.x = backupX;
+                                game.horizontal_move = 0;
+                                break;
+                            }
 
-                if !game.cur_shape.is_in_board() {
-                    game.cur_shape.y -= 1;
+                        }else if game.horizontal_move>0 {
+                            if game.cur_shape.is_out_right() {
+                                game.cur_shape.x = backupX;
+                                game.horizontal_move = 0;
+                                break;
+                            } else if game.cur_shape.hit_ground1(&game.board) {
+                                game.cur_shape.x = backupX;
+                                game.horizontal_move = 0;
+                                break;
+                            }
 
-                    game.frezze_tetromino();
-                    game.f_drop = false;
-                } else {
-                    if game.cur_shape.hit_ground(&game.board) {
-                        game.cur_shape.y -= 1;
+                        }
 
-                        game.frezze_tetromino();
-                        game.f_drop = false;
+                        if game.horizontal_move!=0 {
+                            if game.horizontal_start_column!=game.cur_shape.column() {
+                                game.cur_shape.x = backupX;
+                                game.horizontal_move = 0;
+                                break;
+                            }
+
+                        }
+
                     }
+
+                }
+
+            }else if game.f_drop {
+
+                let elapsed = update_timer_v.elapsed().as_millis();
+                if elapsed > 10 {
+                    update_timer_v = Instant::now();
+
+                    for _i in 0..6 {
+                        //-- Move down for checking 
+                        game.cur_shape.y += 1;
+                        if game.cur_shape.hit_ground1(&game.board){
+                            game.cur_shape.y -= 1;
+                            game.frezze_tetromino();
+                            game.new_tetromino();
+                            game.f_drop = false;
+                        }else if game.cur_shape.is_out_bottom() {
+                            game.cur_shape.y -= 1;
+                            game.frezze_tetromino();
+                            game.new_tetromino();
+                            game.f_drop = false;
+
+                        }
+
+                        if  game.f_drop {
+                            if game.velo_h!=0 {
+                                let elapsed = update_timer_h.elapsed().as_millis();
+                                if elapsed>20 {
+                                    let backupX = game.cur_shape.x;
+                                    game.cur_shape.x += game.velo_h;
+                                    if game.velo_h<0 {
+                                        if game.cur_shape.is_out_left() {
+                                            game.cur_shape.x = backupX;
+                                        }else{
+                                            update_timer_h = Instant::now();
+                                            game.horizontal_move = game.velo_h;
+                                            game.horizontal_start_column = game.cur_shape.column();
+                                            break;
+                                        }
+
+                                    }else if game.velo_h>0 {
+                                        if game.cur_shape.is_out_right() {
+                                            game.cur_shape.x = backupX;
+                                        }else{
+                                            update_timer_h = Instant::now();
+                                            game.horizontal_move = game.velo_h;
+                                            game.horizontal_start_column = game.cur_shape.column();
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                
                 }
 
             } else {

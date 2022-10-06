@@ -191,19 +191,6 @@ impl TetrisShape {
         }
     }
 
-    fn is_in_board(&self) -> bool {
-        let mut x: i32;
-        let mut y: i32;
-        for i in 0..4 {
-            x = self.v[i].x + self.x;
-            y = self.v[i].y + self.y;
-            if (x < 0) || (x >= NB_COLUMNS) || (y >= NB_ROWS) {
-                return false;
-            }
-        }
-        true
-    }
-
     fn is_out_left(&self) -> bool {
         let l : i32 = self.min_x_v()*CELL_SIZE + self.x;
         return (l<0);
@@ -374,10 +361,11 @@ struct Game {
     id_hight_score : Option<usize>,
     i_hight_score_color : i32,
     process_event : fn ( self1 : &mut Game, event : &Event)->bool,
-    f_play_sound : bool,
     ascii_table : HashMap<sdl2::keyboard::Keycode,char>,
     horizontal_move : i32,
     horizontal_start_column : i32,
+    nb_completed_lines : i32,
+    f_exit : bool,
 }
 
 impl Game{
@@ -397,7 +385,6 @@ impl Game{
             id_hight_score : None,
             i_hight_score_color : 0,
             process_event : Game::process_standby_event,
-            f_play_sound : false,
             ascii_table : HashMap::from([
                 (Keycode::A, 'A'),
                 (Keycode::B, 'B'),
@@ -448,6 +435,8 @@ impl Game{
             ]),
             horizontal_move : 0,
             horizontal_start_column : -1,
+            nb_completed_lines : 0,
+            f_exit : false,
         }
     }
 
@@ -470,7 +459,36 @@ impl Game{
         false
     }
 
-    fn erase_completed_lines(&mut self) -> i32 {
+    fn erase_first_completed_line(&mut self) {
+        //--------------------------------------------------------
+        for y in 0..NB_ROWS {
+            //-- Check completed line
+            let mut f_complete = true;
+            for x in 0..NB_COLUMNS {
+                if self.board[(x + y * NB_COLUMNS) as usize] == 0 {
+                    f_complete = false;
+                    break;
+                }
+            }
+            if f_complete {
+                //-- Shift down the game board
+                let mut y1 = y;
+                while y1 > 0 {
+                    let ySrcOffset = (y1 - 1) * NB_COLUMNS;
+                    let yDesOffset = y1 * NB_COLUMNS;
+                    for x in 0..NB_COLUMNS {
+                        self.board[(x + yDesOffset) as usize] =
+                            self.board[(x + ySrcOffset) as usize]
+                    }
+                    y1 -= 1;
+                }
+                return;
+            }
+        }
+        
+    }
+
+    fn compute_nb_completed_lines(&mut self) -> i32 {
         //--------------------------------------------------------
         let mut nbL = 0;
         for y in 0..NB_ROWS {
@@ -484,20 +502,10 @@ impl Game{
             }
             if f_complete {
                 nbL += 1;
-                //-- Shift down the game board
-                let mut y1 = y;
-                while y1 > 0 {
-                    let ySrcOffset = (y1 - 1) * NB_COLUMNS;
-                    let yDesOffset = y1 * NB_COLUMNS;
-                    for x in 0..NB_COLUMNS {
-                        self.board[(x + yDesOffset) as usize] =
-                            self.board[(x + ySrcOffset) as usize]
-                    }
-                    y1 -= 1;
-                }
+
             }
         }
-        // return number of erase lines
+        // return number of completed lines
         nbL
     }
 
@@ -517,10 +525,9 @@ impl Game{
             }
         }
 
-        let nb_lines = self.erase_completed_lines();
-        if nb_lines > 0 {
-            self.cur_score += compute_score(nb_lines);
-            self.f_play_sound = true;
+        self.nb_completed_lines = self.compute_nb_completed_lines();
+        if self.nb_completed_lines > 0 {
+            self.cur_score += compute_score(self.nb_completed_lines);
             // if let Some(ref mut succes_sound) = self.success_sound {
             //     succes_sound.set_volume(10.0);
             //     succes_sound.play();
@@ -645,7 +652,7 @@ impl Game{
         let score_string = format!("SCORE : {:06}",self.cur_score);
         let surface = font
             .render(&score_string)
-            .blended(Color::RGB(255, 0, 0))
+            .blended(Color::RGB(255, 255, 0))
             .map_err(|e| e.to_string()).unwrap();
             
         let (w, h) = surface.size();
@@ -706,6 +713,7 @@ impl Game{
         match event {
             Event::Quit { .. } | Event::KeyDown { keycode: Some(Keycode::Escape),..} => 
             { 
+                self.f_exit = true;
                 return true
             }
             Event::KeyDown { keycode: Some(Keycode::Space),..} =>
@@ -723,10 +731,14 @@ impl Game{
     fn process_play_event(&mut self, event : &Event)->bool{
 
         match event {
-            Event::Quit { .. } | Event::KeyDown { keycode: Some(Keycode::Escape),..} => { 
+            Event::Quit { .. }  => {
+                self.f_exit = true;
                 return true
             }
-
+            Event::KeyDown { keycode: Some(Keycode::Escape),..} => {
+                self.f_exit = false;
+                return true
+            }
             Event::KeyDown { keycode: Some(Keycode::Left),..} => 
             {
                 self.velo_h = -1;
@@ -834,7 +846,12 @@ impl Game{
 
     fn process_game_over_event(&mut self, event : &Event)->bool{
         match event {
-            Event::Quit { .. } | Event::KeyDown { keycode: Some(Keycode::Escape),..} => { 
+            Event::Quit { .. } => {
+                self.f_exit = true;
+                return true
+            }
+            Event::KeyDown { keycode: Some(Keycode::Escape),..} => {
+                self.f_exit = false;
                 return true
             }
             Event::KeyDown {keycode: Some(Keycode::Space),..} =>
@@ -853,8 +870,13 @@ impl Game{
     fn process_hight_scores_event(&mut self, event : &Event)->bool{
 
         match event {
-            Event::Quit { .. } | Event::KeyDown { keycode: Some(Keycode::Escape),..} => { 
-                return true
+            Event::Quit { .. } => {
+                self.f_exit = true;
+                return true;
+            }
+            Event::KeyDown { keycode: Some(Keycode::Escape),..} => {
+                self.f_exit = false;
+                return true;
             }
             Event::KeyDown {keycode: Some(Keycode::Backspace),..} =>
             {
@@ -961,7 +983,7 @@ impl Game{
             let target_rect = Rect::new(x_col1, y, w, h);
             canvas.copy(&texture, None, target_rect);
 
-            y += h as i32 + 2;
+            y += h as i32 + 8;
 
 
         }
@@ -1092,13 +1114,20 @@ pub fn main() {
         for event in event_pump.poll_iter(){
 
             if (game.process_event) (&mut game,&event) {
+
+                if game.f_exit {
+                    break 'running;
+                }
+
                 if let Some(i)=game.is_hight_score(){
                     game.insert_hight_score(i , HightScore{name:game.player_name.clone(),score:game.cur_score});
                     game.cur_score = 0;
                     game.mode=GameMode::HightScore;
                     game.process_event = Game::process_hight_scores_event;
                 }else{
-                    break 'running;
+                    game.cur_score = 0;
+                    game.mode=GameMode::StandBy;
+                    game.process_event = Game::process_standby_event;
                 }
             }
 
@@ -1107,7 +1136,16 @@ pub fn main() {
         //-- Update Game State
         if game.mode==GameMode::Play {
 
-            if  {
+            if  game.nb_completed_lines>0 {
+                let elapsed = update_timer_v.elapsed().as_millis();
+                if elapsed>250 {
+                    update_timer_v = Instant::now();
+                    game.nb_completed_lines -= 1;
+                    game.erase_first_completed_line();
+                    //-- Play suscces Sound
+                    sdl2::mixer::Channel::all().play(&sound_chunk, 0).unwrap();
+                    
+                }
 
             }else if game.horizontal_move!=0 {
 
@@ -1294,12 +1332,6 @@ pub fn main() {
                 update_timer_v = Instant::now();
                 game.i_hight_score_color += 1;
             }
-        }
-
-        //-- Play Sound
-        if game.f_play_sound {
-            game.f_play_sound = false;
-            sdl2::mixer::Channel::all().play(&sound_chunk, 0).unwrap();
         }
 
         //canvas.set_draw_color(Color::RGB(30,0,0));

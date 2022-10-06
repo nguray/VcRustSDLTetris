@@ -344,6 +344,8 @@ struct Game {
     horizontal_start_column : i32,
     nb_completed_lines : i32,
     f_exit : bool,
+    tetris_bag: [i32;14],
+    id_tetris_bag : usize,
 }
 
 impl Game{
@@ -415,6 +417,8 @@ impl Game{
             horizontal_start_column : -1,
             nb_completed_lines : 0,
             f_exit : false,
+            tetris_bag : [1,2,3,4,5,6,7,1,2,3,4,5,6,7],
+            id_tetris_bag : 14,
         }
     }
 
@@ -515,17 +519,40 @@ impl Game{
         false
     }
 
+
+    fn tetris_randomizer(&mut self) -> i32{
+        let mut i_src : usize;
+        let mut ityp : i32;
+
+        if self.id_tetris_bag<14 {
+            ityp = self.tetris_bag[self.id_tetris_bag];
+            self.id_tetris_bag +=1;
+        }else{
+            //-- Shuttle bag
+            for _i in 0..14 {
+                i_src = (rand::random::<usize>() % 14);
+                ityp = self.tetris_bag[i_src];
+                self.tetris_bag[i_src] = self.tetris_bag[0];
+                self.tetris_bag[0] = ityp;
+            }
+            //ityp = self.tetris_bag[0];
+            self.id_tetris_bag = 1;
+        }
+        ityp
+    }
+
     fn new_tetromino(&mut self){
         self.cur_shape.init(5*CELL_SIZE, 0, self.next_shape.typ);
         self.cur_shape.y = -(self.cur_shape.max_y()+1)*CELL_SIZE;
-        self.next_shape.init((NB_COLUMNS + 3)*CELL_SIZE, (NB_ROWS / 2)*CELL_SIZE, (rand::random::<u8>() % 6 + 1) as i32);
+        let ityp = self.tetris_randomizer();
+        self.next_shape.init((NB_COLUMNS + 3)*CELL_SIZE, (NB_ROWS / 2)*CELL_SIZE, ityp);
     }
 
     fn draw(&mut self, canvas: &mut WindowCanvas) {
         let mut l: i32;
         let mut t: i32;
 
-        canvas.set_draw_color(Color{r:20,g:20,b:100,a:255});
+        canvas.set_draw_color(Color{r:10,g:10,b:100,a:255});
         canvas.fill_rect(Rect::new(LEFT as i32,TOP as i32,
                     (NB_COLUMNS*CELL_SIZE) as u32,(NB_ROWS*CELL_SIZE) as u32));
 
@@ -639,7 +666,7 @@ impl Game{
         let texture = texture_creator.create_texture_from_surface(&surface)
             .map_err(|e| e.to_string()).unwrap();
 
-        let target_rect = Rect::new(0,(TOP+(NB_ROWS+1)*CELL_SIZE) as i32, w, h);
+        let target_rect = Rect::new(LEFT,(TOP+(NB_ROWS)*CELL_SIZE+CELL_SIZE/2) as i32, w, h);
         canvas.copy(&texture, None, target_rect);
 
     }
@@ -658,11 +685,11 @@ impl Game{
         let texture = texture_creator.create_texture_from_surface(&surface)
             .map_err(|e| e.to_string()).unwrap();
 
-        let mut y = (TOP+(NB_ROWS/2-2)*CELL_SIZE) as i32;
+        let mut y = (TOP+(NB_ROWS/2-5)*CELL_SIZE) as i32;
         let target_rect = Rect::new((LEFT+(NB_COLUMNS*CELL_SIZE-(w as i32))/2) as i32, y, w, h);
         canvas.copy(&texture, None, target_rect);
     
-        y += 6 + h as i32;
+        y += 8 + h as i32;
         let score_string = format!("by");
         let surface = font
         .render(&score_string)
@@ -671,10 +698,10 @@ impl Game{
         let (w, h) = surface.size();
         let texture = texture_creator.create_texture_from_surface(&surface)
             .map_err(|e| e.to_string()).unwrap();
-            let target_rect = Rect::new((LEFT+(NB_COLUMNS*CELL_SIZE-(w as i32))/2) as i32, y, w, h);
-            canvas.copy(&texture, None, target_rect);
+        let target_rect = Rect::new((LEFT+(NB_COLUMNS*CELL_SIZE-(w as i32))/2) as i32, y, w, h);
+        canvas.copy(&texture, None, target_rect);
     
-        y += 6 + h as i32;
+        y += 8 + h as i32;
         let score_string = format!("Raymond NGUYEN");
         let surface = font
         .render(&score_string)
@@ -683,9 +710,23 @@ impl Game{
         let (w, h) = surface.size();
         let texture = texture_creator.create_texture_from_surface(&surface)
             .map_err(|e| e.to_string()).unwrap();
-            let target_rect = Rect::new((LEFT+(NB_COLUMNS*CELL_SIZE-(w as i32))/2) as i32, y, w, h);
-            canvas.copy(&texture, None, target_rect);
+        let target_rect = Rect::new((LEFT+(NB_COLUMNS*CELL_SIZE-(w as i32))/2) as i32, y, w, h);
+        canvas.copy(&texture, None, target_rect);
+
+        y += 8 + 2*h as i32;
+        let score_string = format!("Press SPACE to Play");
+        let surface = font
+        .render(&score_string)
+        .blended(Color::RGB(255, 255, 0))
+        .map_err(|e| e.to_string()).unwrap();
+        let (w, h) = surface.size();
+        let texture = texture_creator.create_texture_from_surface(&surface)
+            .map_err(|e| e.to_string()).unwrap();
+        let target_rect = Rect::new((LEFT+(NB_COLUMNS*CELL_SIZE-(w as i32))/2) as i32, y, w, h);
+        canvas.copy(&texture, None, target_rect);
     
+            
+
     }
 
 
@@ -1058,19 +1099,19 @@ pub fn main() {
     sound_chunk.set_volume(16);
     //sdl2::mixer::Channel::all().play(&sound_chunk, 0).unwrap();
 
-    let texture_creator = canvas.texture_creator();
+    //let texture_creator = canvas.texture_creator();
 
     //-- 
     let ttf_context = sdl2::ttf::init().map_err(|e| e.to_string()).unwrap();
 
     let mut font_path = std::env::current_dir().unwrap();
     font_path.push("sansation.ttf");
-    let mut font18 = ttf_context.load_font(&font_path,18).unwrap();
+    let mut font18 = ttf_context.load_font(&font_path,17).unwrap();
     font18.set_style(sdl2::ttf::FontStyle::BOLD|sdl2::ttf::FontStyle::ITALIC);
 
     //font_path = std::env::current_dir().unwrap();
     //font_path.push("sansation.ttf");
-    let mut font20 = ttf_context.load_font(&font_path,20).unwrap();
+    let mut font20 = ttf_context.load_font(&font_path,19).unwrap();
     font20.set_style(sdl2::ttf::FontStyle::BOLD);
 
     let mut game = Game::new();
@@ -1080,6 +1121,7 @@ pub fn main() {
 
     let mut update_timer_v = Instant::now();
     let mut update_timer_h = Instant::now();
+    let mut update_timer_r = Instant::now();
 
     let mut event_pump = sdl_context.event_pump().unwrap();
     let mut i = 0;
@@ -1087,8 +1129,7 @@ pub fn main() {
 
     'running: loop {
         
-        //i = (i+ 1) % 255;
-        canvas.set_draw_color(Color::RGB(30,30,80));
+        canvas.set_draw_color(Color::RGB(48,48,255));
         canvas.clear();
 
         for event in event_pump.poll_iter(){
@@ -1101,6 +1142,7 @@ pub fn main() {
 
                 if let Some(i)=game.is_hight_score(){
                     game.insert_hight_score(i , HightScore{name:game.player_name.clone(),score:game.cur_score});
+                    game.init_board();
                     game.cur_score = 0;
                     game.mode=GameMode::HightScore;
                     game.process_event = Game::process_hight_scores_event;
@@ -1304,6 +1346,12 @@ pub fn main() {
                     game.mode = GameMode::GameOver;
                     game.process_event = Game::process_game_over_event;
                 } 
+            }
+
+            let elapsed = update_timer_r.elapsed().as_millis();
+            if elapsed>400 {
+                update_timer_r = Instant::now();
+                game.next_shape.rotate_right();
             }
                
         }else if game.mode==GameMode::HightScore{

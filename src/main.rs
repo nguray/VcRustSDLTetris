@@ -457,11 +457,11 @@ impl Game{
                 //-- Shift down the game board
                 let mut y1 = y;
                 while y1 > 0 {
-                    let ySrcOffset = (y1 - 1) * NB_COLUMNS;
-                    let yDesOffset = y1 * NB_COLUMNS;
+                    let y_src_offset = (y1 - 1) * NB_COLUMNS;
+                    let y_des_offset = y1 * NB_COLUMNS;
                     for x in 0..NB_COLUMNS {
-                        self.board[(x + yDesOffset) as usize] =
-                            self.board[(x + ySrcOffset) as usize]
+                        self.board[(x + y_des_offset) as usize] =
+                            self.board[(x + y_src_offset) as usize]
                     }
                     y1 -= 1;
                 }
@@ -473,7 +473,7 @@ impl Game{
 
     fn compute_nb_completed_lines(&mut self) -> i32 {
         //--------------------------------------------------------
-        let mut nbL = 0;
+        let mut nb_lines : i32 = 0;
         for y in 0..NB_ROWS {
             //-- Check completed line
             let mut f_complete = true;
@@ -484,26 +484,24 @@ impl Game{
                 }
             }
             if f_complete {
-                nbL += 1;
+                nb_lines += 1;
 
             }
         }
         // return number of completed lines
-        nbL
+        nb_lines
     }
 
     fn frezze_tetromino(&mut self) -> bool {
         let mut x: i32;
         let mut y: i32;
-        let mut ix: i32;
-        let mut iy: i32;
 
-        ix = (self.cur_shape.x + 1) / CELL_SIZE;
-        iy = (self.cur_shape.y + 1) / CELL_SIZE;
+        let ix = (self.cur_shape.x + 1) / CELL_SIZE;
+        let iy = (self.cur_shape.y + 1) / CELL_SIZE;
         for i in 0..4 {
             x = self.cur_shape.v[i].x + ix;
             y = self.cur_shape.v[i].y + iy;
-            if ((x>=0) && (x<NB_COLUMNS) && (y>=0) && (y<NB_ROWS)){
+            if (x>=0) && (x<NB_COLUMNS) && (y>=0) && (y<NB_ROWS){
                 self.board[(x + y * NB_COLUMNS) as usize] = self.cur_shape.typ;
             }
         }
@@ -584,7 +582,7 @@ impl Game{
         self.hight_scores = Vec::new();
 
         let path = Path::new("high_scores.txt");
-        let display = path.display();
+        //let display = path.display();
         let _ = match File::open(&path){
             Err(_why) => {
                 //panic!("Couldn't open {}: {}", display, why),
@@ -640,9 +638,9 @@ impl Game{
         self.hight_scores[iscore].name = self.player_name.clone();
     }
 
-    fn set_hight_score_value(&mut self, iscore : usize){
-        self.hight_scores[iscore].score = self.cur_score;
-    }
+    // fn set_hight_score_value(&mut self, iscore : usize){
+    //     self.hight_scores[iscore].score = self.cur_score;
+    // }
 
     fn insert_hight_score(&mut self, iscore : usize, new_hight : HightScore){
         self.hight_scores.insert(iscore, new_hight);
@@ -1025,7 +1023,6 @@ fn compute_score(nb_lines: i32) -> i32 {
 
 pub fn main() {
 
-    let mut music_playing : bool = false;
 
     let sdl_context = sdl2::init().expect("SDL initialization failed");
     let video_subsystem = sdl_context.video().unwrap();
@@ -1086,7 +1083,6 @@ pub fn main() {
     println!("music type => {:?}", music.get_type());
     println!("music volume => {:?}", sdl2::mixer::Music::get_volume());
     println!("play => {:?}", music.play(-1));
-    music_playing = true;
 
 
     let mut sound_path = std::env::current_dir().unwrap();
@@ -1122,7 +1118,7 @@ pub fn main() {
     let mut update_timer_r = Instant::now();
 
     let mut event_pump = sdl_context.event_pump().unwrap();
-    let mut i = 0;
+    //let mut i = 0;
 
 
     'running: loop {
@@ -1174,27 +1170,27 @@ pub fn main() {
                     update_timer_h = Instant::now();
 
                     for _i in 0..4 {
-                        let backupX = game.cur_shape.x;
+                        let backup_x = game.cur_shape.x;
                         game.cur_shape.x += game.horizontal_move;
 
                         if game.horizontal_move<0 {
                             if game.cur_shape.is_out_left() {
-                                game.cur_shape.x = backupX;
+                                game.cur_shape.x = backup_x;
                                 game.horizontal_move = 0;
                                 break;
                             } else if game.cur_shape.hit_ground1(&game.board) {
-                                game.cur_shape.x = backupX;
+                                game.cur_shape.x = backup_x;
                                 game.horizontal_move = 0;
                                 break;
                             }
 
                         }else if game.horizontal_move>0 {
                             if game.cur_shape.is_out_right() {
-                                game.cur_shape.x = backupX;
+                                game.cur_shape.x = backup_x;
                                 game.horizontal_move = 0;
                                 break;
                             } else if game.cur_shape.hit_ground1(&game.board) {
-                                game.cur_shape.x = backupX;
+                                game.cur_shape.x = backup_x;
                                 game.horizontal_move = 0;
                                 break;
                             }
@@ -1203,7 +1199,7 @@ pub fn main() {
 
                         if game.horizontal_move!=0 {
                             if game.horizontal_start_column!=game.cur_shape.column() {
-                                game.cur_shape.x = backupX;
+                                game.cur_shape.x = backup_x;
                                 game.horizontal_move = 0;
                                 break;
                             }
@@ -1240,11 +1236,11 @@ pub fn main() {
                             if game.velo_h!=0 {
                                 let elapsed = update_timer_h.elapsed().as_millis();
                                 if elapsed>20 {
-                                    let backupX = game.cur_shape.x;
+                                    let backup_x = game.cur_shape.x;
                                     game.cur_shape.x += game.velo_h;
                                     if game.velo_h<0 {
                                         if game.cur_shape.is_out_left() {
-                                            game.cur_shape.x = backupX;
+                                            game.cur_shape.x = backup_x;
                                         }else{
                                             update_timer_h = Instant::now();
                                             game.horizontal_move = game.velo_h;
@@ -1254,7 +1250,7 @@ pub fn main() {
 
                                     }else if game.velo_h>0 {
                                         if game.cur_shape.is_out_right() {
-                                            game.cur_shape.x = backupX;
+                                            game.cur_shape.x = backup_x;
                                         }else{
                                             update_timer_h = Instant::now();
                                             game.horizontal_move = game.velo_h;
@@ -1276,32 +1272,32 @@ pub fn main() {
                 if elapsed > limit {
                     update_timer_v = Instant::now();
 
-                    for i in 0..3 {
+                    for _i in 0..3 {
                         //-- Move down to Check
                         game.cur_shape.y += 1;
-                        let mut fMove : bool = true;
+                        let mut f_move : bool = true;
                         if game.cur_shape.hit_ground1(&game.board) {
                             game.cur_shape.y -= 1;
                             game.frezze_tetromino();
                             game.new_tetromino();
-                            fMove = false;
-                        }else if (game.cur_shape.is_out_bottom()){
+                            f_move = false;
+                        }else if game.cur_shape.is_out_bottom() {
                             game.cur_shape.y -= 1;
                             game.frezze_tetromino();
                             game.new_tetromino();
-                            fMove = false;
+                            f_move = false;
                         }
 
-                        if (fMove){
+                        if f_move {
 
                             let elapsed = update_timer_h.elapsed().as_millis();
                             if game.velo_h!=0 {
 
-                                if (elapsed>15){
+                                if elapsed>15 {
                                     update_timer_h = Instant::now();
                                     game.cur_shape.x += game.velo_h;
                                     if game.velo_h<0 {
-                                        if (game.cur_shape.is_out_left()){
+                                        if game.cur_shape.is_out_left() {
                                             game.cur_shape.x -= game.velo_h;
                                         }else{
                                             if game.cur_shape.hit_ground1(&game.board) {
@@ -1313,7 +1309,7 @@ pub fn main() {
                                             }
                                         }
                                     }else if game.velo_h>0 {
-                                        if (game.cur_shape.is_out_right()){
+                                        if game.cur_shape.is_out_right(){
                                             game.cur_shape.x -= game.velo_h;
                                         }else{
                                             if game.cur_shape.hit_ground1(&game.board) {

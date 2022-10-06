@@ -586,7 +586,12 @@ impl Game{
         let path = Path::new("high_scores.txt");
         let display = path.display();
         let _ = match File::open(&path){
-            Err(why) => panic!("Couldn't open {}: {}", display, why),
+            Err(why) => {
+                //panic!("Couldn't open {}: {}", display, why),
+                for _i in 0..10 {
+                    self.hight_scores.push(HightScore{name: "XXXXXX".to_string(), score:0});
+                }
+                },
             Ok(file) => {
                 let f = io::BufReader::new(file);
                 for line in f.lines(){

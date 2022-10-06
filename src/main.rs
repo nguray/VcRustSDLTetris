@@ -1107,7 +1107,10 @@ pub fn main() {
         //-- Update Game State
         if game.mode==GameMode::Play {
 
-            if game.horizontal_move!=0 {
+            if  {
+
+            }else if game.horizontal_move!=0 {
+
                 let elapsed = update_timer_h.elapsed().as_millis();
                 if elapsed > 20 {
                     update_timer_h = Instant::now();

@@ -1,5 +1,5 @@
 extern crate sdl2;
-extern crate rand;
+//extern crate rand;
 
 use sdl2::VideoSubsystem;
 use sdl2::pixels::Color;
@@ -15,6 +15,7 @@ use std::io::prelude::*;
 use std::io::{self, BufReader, LineWriter};
 use std::path::Path;
 use std::collections::HashMap;
+use rand::prelude::*;
 
 use sdl2::mixer::{InitFlag, AUDIO_S16LSB, DEFAULT_CHANNELS};
 
@@ -510,32 +511,29 @@ impl Game{
         self.nb_completed_lines = self.compute_nb_completed_lines();
         if self.nb_completed_lines > 0 {
             self.cur_score += compute_score(self.nb_completed_lines);
-            // if let Some(ref mut succes_sound) = self.success_sound {
-            //     succes_sound.set_volume(10.0);
-            //     succes_sound.play();
-            // }
             return true;
         }
         false
     }
 
-
     fn tetris_randomizer(&mut self) -> i32{
         let mut i_src : usize;
         let mut ityp : i32;
 
+        let mut rng = thread_rng();
         if self.id_tetris_bag<14 {
             ityp = self.tetris_bag[self.id_tetris_bag];
             self.id_tetris_bag +=1;
         }else{
             //-- Shuttle bag
             for _i in 0..14 {
-                i_src = (rand::random::<usize>() % 14);
+                //i_src = (rand::random::<usize>() % 14);
+                i_src = rng.gen_range(0..14);
                 ityp = self.tetris_bag[i_src];
                 self.tetris_bag[i_src] = self.tetris_bag[0];
                 self.tetris_bag[0] = ityp;
             }
-            //ityp = self.tetris_bag[0];
+            ityp = self.tetris_bag[0];
             self.id_tetris_bag = 1;
         }
         ityp

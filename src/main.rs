@@ -579,14 +579,11 @@ impl Game{
     fn load_hight_scores(&mut self){
         //--
         self.hight_scores = Vec::new();
-        // self.hight_scores.push(Hight_Score{name:"azeret1".to_string(),score:100});
-        // self.hight_scores.push(Hight_Score{name:"azeret2".to_string(),score:200});
-        // self.hight_scores.push(Hight_Score{name:"azeret3".to_string(),score:300});
 
         let path = Path::new("high_scores.txt");
         let display = path.display();
         let _ = match File::open(&path){
-            Err(why) => {
+            Err(_why) => {
                 //panic!("Couldn't open {}: {}", display, why),
                 for _i in 0..10 {
                     self.hight_scores.push(HightScore{name: "XXXXXX".to_string(), score:0});

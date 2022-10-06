@@ -260,17 +260,6 @@ impl TetrisShape {
         return false;
     }
 
-    fn max_x(&self)->i32{
-        let mut maxi = self.v[0].x + self.x;
-        for i in 1..4{
-            let x = self.v[i].x + self.x;
-            if x>maxi{
-                maxi = x;
-            }
-        }
-        maxi
-    }
-
     fn max_x_v(&self)->i32{
         let mut maxi = self.v[0].x;
         for i in 1..4{
@@ -280,17 +269,6 @@ impl TetrisShape {
             }
         }
         maxi
-    }
-
-    fn min_x(&self)->i32{
-        let mut mini = self.v[0].x+ self.x;
-        for i in 1..4{
-            let x = self.v[i].x+ self.x;
-            if x<mini{
-                mini = x;
-            }
-        }
-        mini
     }
 
     fn min_x_v(&self)->i32{

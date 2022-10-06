@@ -210,7 +210,7 @@ impl TetrisShape {
     }
 
     fn is_out_right(&self) -> bool {
-        let r : i32 = self.min_x_v()*CELL_SIZE + CELL_SIZE + self.x;
+        let r : i32 = self.max_x_v()*CELL_SIZE + CELL_SIZE + self.x;
         return (r>(NB_COLUMNS*CELL_SIZE));
     }
 
@@ -271,21 +271,6 @@ impl TetrisShape {
         }
 
         return false;
-    }
-
-    fn hit_ground(&self, board: &[i32; (NB_ROWS * NB_COLUMNS) as usize]) -> bool {
-        let mut x: i32;
-        let mut y: i32;
-        for i in 0..4 {
-            y = self.v[i].y + self.y;
-            if y>=0{
-                x = self.v[i].x + self.x;
-                if board[(x + y * NB_COLUMNS) as usize] != 0 {
-                    return true;
-                }
-            }
-        }
-        false
     }
 
     fn max_x(&self)->i32{
@@ -1120,23 +1105,7 @@ pub fn main() {
         }
 
         //-- Update Game State
-
         if game.mode==GameMode::Play {
-
-            let mut fAlreadyMoveH = false;
-            let elapsed = update_timer_h.elapsed().as_millis();
-            if elapsed > 100 {
-                update_timer_h = Instant::now();
-                game.cur_shape.x += game.velo_h;
-                if !game.cur_shape.is_in_board() {
-                    game.cur_shape.x -= game.velo_h;
-                } else {
-                    if game.cur_shape.hit_ground(&game.board) {
-                        game.cur_shape.x -= game.velo_h;
-                    }
-                }
-                fAlreadyMoveH = true;
-            }
 
             if game.horizontal_move!=0 {
                 let elapsed = update_timer_h.elapsed().as_millis();
@@ -1240,8 +1209,9 @@ pub fn main() {
                 }
 
             } else {
+
                 let elapsed = update_timer_v.elapsed().as_millis();
-                let limit = if game.f_fast_down { 10 }else{ 25 };
+                let limit = if game.f_fast_down { 10 }else{ 20 };
                 if elapsed > limit {
                     update_timer_v = Instant::now();
 

@@ -1033,7 +1033,7 @@ pub fn main() {
     .build()
     .unwrap();
 
-    let mut canvas = window.into_canvas().build().unwrap();
+    let mut canvas = window.into_canvas().present_vsync().build().unwrap();
 
     let frequency = 44_100;
     let format = AUDIO_S16LSB; // signed 16 bit samples, in little-endian byte order

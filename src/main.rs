@@ -756,15 +756,16 @@ impl Game{
                 self.f_exit = false;
                 return true
             }
-            Event::KeyDown { keycode: Some(Keycode::Left),..} => 
+            Event::KeyDown { keycode: Some(Keycode::Left), repeat: false,..} => 
             {
                 self.velo_h = -1;
             }
-            Event::KeyDown { keycode: Some(Keycode::Right),..} => {
+            Event::KeyDown { keycode: Some(Keycode::Right), repeat: false,..} => {
                 self.velo_h = 1;
             }
             Event::KeyDown { keycode: Some(Keycode::Up),..} => 
             {
+
                 self.cur_shape.rotate_left();
 
                 if  self.cur_shape.hit_ground1(&self.board) {
@@ -891,7 +892,7 @@ impl Game{
                 self.f_exit = true;
                 return true;
             }
-            Event::KeyDown { keycode: Some(Keycode::Escape),..} => {
+            Event::KeyDown { keycode: Some(Keycode::Escape), repeat: false,..} => {
                 self.f_exit = false;
                 return true;
             }

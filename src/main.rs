@@ -813,11 +813,7 @@ impl Game{
                 //println!("Released Key ");
                 self.f_fast_down = false;
             }
-            Event::KeyUp { keycode: Some(Keycode::Left),..} => {
-                //println!("Released Key ");
-                self.velo_h = 0;
-            }
-            Event::KeyUp { keycode: Some(Keycode::Right),..} => {
+            Event::KeyUp { keycode: Some(Keycode::Left) | Some(Keycode::Right),..} => {
                 //println!("Released Key ");
                 self.velo_h = 0;
             }
@@ -905,7 +901,7 @@ impl Game{
                     }
                 }
             }
-            Event::KeyDown {keycode: Some(Keycode::KpEnter),..} | Event::KeyDown {keycode: Some(Keycode::Return),..} => 
+            Event::KeyDown {keycode: Some(Keycode::KpEnter)|Some(Keycode::Return),..} => 
             {
                 if let Some(iscore) = self.id_hight_score {
                     if self.player_name.len()==0{
